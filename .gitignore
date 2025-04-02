@@ -134,3 +134,15 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Operating System Files
+.DS_Store           # macOS
+Thumbs.db           # Windows
+desktop.ini         # Windows
+
+# Editor/IDE
+.vscode/            # VS Code configs (except settings)
+!.vscode/settings.json  # Keeping important VSCode settings
+
+# Project-specific
+*.temp.*            # Temporary development files

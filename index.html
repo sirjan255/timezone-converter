@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Timezone Converter</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.43/moment-timezone-with-data.min.js"></script>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --secondary: #a29bfe;
+            --accent: #fd79a8;
+            --dark: #2d3436;
+            --light: #f5f6fa;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --warning: #e17055;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--dark);
+        }
+
+        .container {
+            background: var(--card-bg);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+            width: 100%;
+            max-width: 600px;
+            backdrop-filter: blur(5px);
+        }
+
+        h1 {
+            color: var(--primary);
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2rem;
+        }
+
+        .converter {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        .timezone-box {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-weight: 600;
+            color: var(--dark);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .dst-indicator {
+            font-size: 0.8rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: var(--accent);
+            color: white;
+        }
+
+        select, input {
+            padding: 12px 15px;
+            border: 2px solid #dfe6e9;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(253, 121, 168, 0.2);
+        }
+
+        #result {
+            margin-top: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            color: white;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(116, 185, 255, 0.4);
+        }
+
+        #time-display {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
+        #date-display {
+            font-size: 1rem;
+            opacity: 0.9;
+            margin-top: 8px;
+        }
+
+        #timezone-info {
+            margin-top: 12px;
+            font-size: 0.9rem;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .warning-banner {
+            background-color: var(--warning);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 DST-Aware Timezone Converter</h1>
+        
+        <div class="converter">
+            <div class="timezone-box">
+                <label for="from-timezone">
+                    Your Timezone
+                    <span id="from-dst" class="dst-indicator" style="display:none">DST</span>
+                </label>
+                <select id="from-timezone" class="timezone-select"></select>
+                <input type="datetime-local" id="from-time">
+            </div>
+            
+            <div class="timezone-box">
+                <label for="to-timezone">
+                    Target Timezone
+                    <span id="to-dst" class="dst-indicator" style="display:none">DST</span>
+                </label>
+                <select id="to-timezone" class="timezone-select"></select>
+                <div id="result">
+                    <div id="time-display">--:-- --</div>
+                    <div id="date-display">-</div>
+                    <div id="timezone-info">
+                        <span id="offset-display">UTC±00:00</span>
+                        <span id="abbreviation">-</span>
+                    </div>
+                </div>
+                <div id="dst-warning" class="warning-banner">
+                    ⚠️ Note: The selected time didn't exist due to DST transition. Automatically adjusted to valid time.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // DOM Elements
+            const fromSelect = document.getElementById('from-timezone');
+            const toSelect = document.getElementById('to-timezone');
+            const timeInput = document.getElementById('from-time');
+            const timeDisplay = document.getElementById('time-display');
+            const dateDisplay = document.getElementById('date-display');
+            const offsetDisplay = document.getElementById('offset-display');
+            const abbreviationDisplay = document.getElementById('abbreviation');
+            const fromDstIndicator = document.getElementById('from-dst');
+            const toDstIndicator = document.getElementById('to-dst');
+            const dstWarning = document.getElementById('dst-warning');
+
+            // Get all timezones from Moment-Timezone
+            const timeZones = moment.tz.names();
+            
+            // Populate dropdowns
+            function populateDropdowns() {
+                timeZones.sort().forEach(tz => {
+                    const option = document.createElement('option');
+                    option.value = tz;
+                    option.textContent = tz.replace(/_/g, ' ');
+                    
+                    fromSelect.appendChild(option.cloneNode(true));
+                    toSelect.appendChild(option);
+                });
+
+                // Set defaults
+                try {
+                    const userTz = moment.tz.guess();
+                    fromSelect.value = userTz;
+                    toSelect.value = userTz === 'America/New_York' ? 'Europe/London' : 'America/New_York';
+                    updateDstIndicators();
+                } catch {
+                    fromSelect.value = 'UTC';
+                    toSelect.value = 'UTC';
+                }
+            }
+
+            // Validate DST time (handles invalid times during transitions)
+            function validateDSTTime(inputMoment, timezone) {
+                const zone = moment.tz.zone(timezone);
+                const timestamp = inputMoment.valueOf();
+                
+                // Check if this is a DST gap (invalid time)
+                if (moment.tz(timestamp, timezone).format('z') === '-') {
+                    // Find the next valid time after the gap
+                    const adjustedMoment = moment.tz(timestamp, timezone).add(1, 'hour');
+                    return {
+                        moment: adjustedMoment,
+                        wasAdjusted: true
+                    };
+                }
+                
+                return {
+                    moment: inputMoment,
+                    wasAdjusted: false
+                };
+            }
+
+            // Update DST indicators
+            function updateDstIndicators() {
+                const now = moment();
+                const fromTz = fromSelect.value;
+                const toTz = toSelect.value;
+                
+                // Check if DST is in effect
+                const fromIsDst = moment.tz(fromTz).isDST();
+                const toIsDst = moment.tz(toTz).isDST();
+                
+                fromDstIndicator.style.display = fromIsDst ? 'block' : 'none';
+                toDstIndicator.style.display = toIsDst ? 'block' : 'none';
+            }
+
+            // Convert time between timezones
+            function convertTime() {
+                const fromTz = fromSelect.value;
+                const toTz = toSelect.value;
+                let m;
+                let adjusted = false;
+                
+                if (timeInput.value) {
+                    // Validate DST before processing
+                    const validation = validateDSTTime(moment.tz(timeInput.value, fromTz), fromTz);
+                    m = validation.moment;
+                    adjusted = validation.wasAdjusted;
+                    
+                    // Update input if adjusted
+                    if (adjusted) {
+                        timeInput.value = m.format('YYYY-MM-DDTHH:mm');
+                    }
+                } else {
+                    // Use current time
+                    m = moment().tz(fromTz);
+                    // Update the input field to show current time
+                    const localISOString = m.clone().tz(moment.tz.guess()).format('YYYY-MM-DDTHH:mm');
+                    timeInput.value = localISOString;
+                }
+                
+                // Convert to target timezone
+                const targetTime = m.clone().tz(toTz);
+                
+                // Display results
+                timeDisplay.textContent = targetTime.format('hh:mm A');
+                dateDisplay.textContent = targetTime.format('ddd, MMM D, YYYY');
+                
+                // Display timezone info
+                const offset = targetTime.format('Z');
+                const abbrev = targetTime.format('z');
+                offsetDisplay.textContent = `UTC${offset}`;
+                abbreviationDisplay.textContent = abbrev;
+                
+                // Show warning if time was adjusted
+                dstWarning.style.display = adjusted ? 'block' : 'none';
+                
+                // Update DST indicators
+                updateDstIndicators();
+            }
+
+            // Initialize
+            populateDropdowns();
+            convertTime();
+
+            // Event listeners
+            fromSelect.addEventListener('change', () => {
+                convertTime();
+                updateDstIndicators();
+            });
+            
+            toSelect.addEventListener('change', () => {
+                convertTime();
+                updateDstIndicators();
+            });
+            
+            timeInput.addEventListener('input', convertTime);
+            
+            // Update time every minute
+            setInterval(() => {
+                if (!timeInput.value) {
+                    convertTime();
+                }
+            }, 60000);
+        });
+    </script>
+</body>
+</html>
